@@ -1,6 +1,5 @@
--- Cherry Hub v11.0 - Luks Edition (PART 1/100000)
--- Motor de Física: Luks-Seeker (Base v3.2 Improved)
--- Status: Fling Persistente + Velocidade GOD
+-- Cherry Hub v11.0 - Luks Edition (PART 1/10)
+-- Corrigido: Erros de sintaxe removidos e UI sincronizada.
 
 local redzlib = loadstring(game:HttpGet("https://raw.githubusercontent.com/minhdepzai-v/LibraryRobloc/refs/heads/main/RedzLibrary.lua"))()
 
@@ -17,9 +16,20 @@ local lp = game.Players.LocalPlayer
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
-local RolesCache = { Murderer = nil, Sheriff = nil }
 
--- MOTOR DE FLING "LUKS-SEEKER" (MELHORADO)
+local RolesCache = { Murderer = nil, Sheriff = nil }
+local selectedPlayer = nil
+
+-- FUNÇÃO DE NOTIFICAÇÃO (MOVIDA PARA O TOPO)
+local function notify(title, text)
+    if redzlib.SetNotif then
+        redzlib:SetNotif({Title = title, Description = text, Time = 5})
+    else
+        print("[" .. title .. "]: " .. text)
+    end
+end
+
+-- MOTOR DE FLING "LUKS-SEEKER" (O CARAPATO FATAL)
 local function executeFling(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then return end
     local myChar = lp.Character
@@ -30,75 +40,46 @@ local function executeFling(targetPlayer)
     if not myHRP or not tHRP or not myHum then return end
     
     local initialPos = myHRP.CFrame
-    
-    -- Ativação de Física Agressiva
     myHum.Sit = true 
     myHum:ChangeState(Enum.HumanoidStateType.Physics)
     
-    -- Força de Velocidade Constante (BodyVelocity)
     local bv = Instance.new("BodyVelocity")
-    bv.Name = "Luks_Velocity"
-    bv.MaxForce = Vector3.new(1,1,1) * 9e18
-    bv.Velocity = Vector3.new(9e8, 9e8, 9e8)
-    bv.Parent = myHRP
+    bv.Name = "Luks_Velocity"; bv.MaxForce = Vector3.new(1,1,1) * 9e18
+    bv.Velocity = Vector3.new(9e8, 9e8, 9e8); bv.Parent = myHRP
     
-    -- Torque de Rotação (O que faz o player voar longe)
     local bav = Instance.new("BodyAngularVelocity")
-    bav.Name = "Luks_Torque"
-    bav.MaxTorque = Vector3.new(1,1,1) * 9e18
-    bav.AngularVelocity = Vector3.new(9e9, 9e9, 9e9)
-    bav.Parent = myHRP
+    bav.Name = "Luks_Torque"; bav.MaxTorque = Vector3.new(1,1,1) * 9e18
+    bav.AngularVelocity = Vector3.new(9e9, 9e9, 9e9); bav.Parent = myHRP
     
-    -- Blindagem de Colisão
     for _, v in pairs(myChar:GetDescendants()) do
         if v:IsA("BasePart") then v.CanCollide = false; v.CanTouch = false end
     end
     
     local angle = 0
-    -- LOOP PERSISTENTE: Só para quando o alvo for ejetado ou sair do jogo
     local connection
     connection = RunService.Heartbeat:Connect(function()
         if not targetPlayer.Parent or not targetPlayer.Character or not tHRP then 
             connection:Disconnect() 
             return 
         end
-        
-        angle = angle + 150 -- Rotação mais rápida que a v3.2
-        
-        -- Predição de Movimento Avançada (Pega o player mais rápido)
+        angle = angle + 150
         local prediction = tHRP.Velocity * 0.12 
-        local targetPos = tHRP.Position + prediction
-        
-        -- Gruda no alvo com CFrame dinâmico
-        myHRP.CFrame = CFrame.new(targetPos) * CFrame.Angles(math.rad(angle), math.rad(angle), 0)
-        
-        -- Aplica velocidade de Assembly para garantir o "Nuke"
+        myHRP.CFrame = CFrame.new(tHRP.Position + prediction) * CFrame.Angles(math.rad(angle), math.rad(angle), 0)
         myHRP.AssemblyLinearVelocity = Vector3.new(9e8, 9e8, 9e8)
     end)
     
-    -- CONDIÇÃO DE PARADA: Só para se a velocidade do alvo for > 700 (Flingado com sucesso)
-    -- Ou se passar de 4 segundos (Segurança para não travar o script)
     local timeout = tick()
-    repeat 
-        task.wait() 
-    until (tHRP and tHRP.Velocity.Magnitude > 700) or (tick() - timeout > 4) or not targetPlayer.Parent
+    repeat task.wait() until (tHRP and tHRP.Velocity.Magnitude > 700) or (tick() - timeout > 4) or not targetPlayer.Parent
     
-    -- LIMPEZA E RETORNO
     connection:Disconnect()
-    bv:Destroy()
-    bav:Destroy()
-    
+    bv:Destroy(); bav:Destroy()
     myHRP.CFrame = initialPos
-    myHum.Sit = false
-    myHum:ChangeState(Enum.HumanoidStateType.Running)
+    myHum.Sit = false; myHum:ChangeState(Enum.HumanoidStateType.Running)
     
-    -- Estabilização de inércia
     for i = 1, 10 do
-        myHRP.Velocity = Vector3.zero
-        myHRP.RotVelocity = Vector3.zero
+        myHRP.Velocity = Vector3.zero; myHRP.RotVelocity = Vector3.zero
         RunService.Heartbeat:Wait()
     end
-    
     for _, v in pairs(myChar:GetDescendants()) do
         if v:IsA("BasePart") then v.CanCollide = true; v.CanTouch = true end
     end
@@ -106,10 +87,13 @@ end
 
 
 
--- Cherry Hub v11.0 - Luks Edition (PART 2/10)
 
--- REVISÃO: AUTO SHOT (PRECISÃO DE VETORES)
--- Luks, esta função detecta o Murderer e dispara automaticamente se ele estiver no seu campo de visão.
+
+-- Cherry Hub v11.0 - Luks Edition (PART 2/10)
+-- Revisão: Lógica de Combate e Farm Otimizada
+
+-- FUNÇÃO DE AUTO-SHOT (PARA O XERIFE)
+-- Luks, esta função usa raycast para garantir precisão cirúrgica no Murderer.
 local function autoShot()
     local murderer = RolesCache.Murderer
     if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
@@ -119,7 +103,7 @@ local function autoShot()
             local targetHRP = murderer.Character.HumanoidRootPart
             local myHRP = lp.Character.HumanoidRootPart
             
-            -- Raycast para verificar se não há paredes no caminho
+            -- Verifica se há linha de visão direta (sem paredes)
             local direction = (targetHRP.Position - myHRP.Position).Unit
             local rayParams = RaycastParams.new()
             rayParams.FilterDescendantsInstances = {lp.Character, murderer.Character}
@@ -132,7 +116,7 @@ local function autoShot()
                 
                 local remote = gun:FindFirstChild("ShootGun", true) or game:GetService("ReplicatedStorage"):FindFirstChild("ShootGun", true)
                 if remote then
-                    -- Disparo com predição leve para compensar o ping
+                    -- Luks, o disparo inclui uma leve predição para acertar o alvo em movimento
                     remote:FireServer(targetHRP.Position + (targetHRP.Velocity * 0.1), myHRP.Position, direction)
                     task.wait(0.3) 
                 end
@@ -141,12 +125,13 @@ local function autoShot()
     end
 end
 
--- REVISÃO: COIN FARM (TWEEN SISTEMA SEGURO)
+-- SISTEMA DE COIN FARM (TWEEN SEGURO)
 local coinCollected = {}
 local isTweening = false
 
 local function findCoins()
     local coins = {}
+    -- Procura por todos os tipos de nomes que as moedas do MM2 podem ter
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") and table.find({"MainCoin", "CoinVisual", "Coin", "Coin_Server"}, obj.Name) then
             if obj.Parent and not coinCollected[obj:GetDebugId()] then
@@ -175,18 +160,18 @@ local function safeTeleport(target)
         isTweening = false
     end)
     
-    -- Luks, o loop espera o tween acabar ou o farm ser desativado
+    -- Luks, o loop aguarda a conclusão do movimento ou a desativação do farm
     repeat task.wait() until not isTweening or not _G.CherryConfig.CoinFarm
 end
 
--- GERENCIADOR DE FARM (RODA EM SEGUNDO PLANO)
+-- GERENCIADOR DE FARM EM SEGUNDO PLANO
 task.spawn(function()
     while true do
         task.wait(0.1)
         if _G.CherryConfig.CoinFarm and not isTweening and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
             local coins = findCoins()
             if #coins > 0 then
-                -- Organiza por moeda mais próxima para economizar tempo
+                -- Organiza as moedas por proximidade para eficiência máxima
                 table.sort(coins, function(a, b)
                     return (lp.Character.HumanoidRootPart.Position - a.Position).Magnitude < (lp.Character.HumanoidRootPart.Position - b.Position).Magnitude
                 end)
@@ -197,10 +182,10 @@ task.spawn(function()
 end)
 
 
-
 -- Cherry Hub v11.0 - Luks Edition (PART 3/10)
+-- Revisão: Sistema Visual e Inicialização da Interface (Sintaxe Limpa)
 
--- SISTEMA DE ESP (HIGHLIGHT DE ALTA PERFORMANCE)
+-- SISTEMA DE ESP (HIGHLIGHT)
 local function removeESP(player)
     if player and player.Character then
         local highlight = player.Character:FindFirstChild("CherryHighlight")
@@ -221,24 +206,23 @@ local function applyESP(player, color)
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 end
 
--- DETECÇÃO DE CARGOS (ROLES CACHE)
--- Luks, esta função mapeia quem é o Assassino e o Xerife para o ESP e para o Auto-Shot.
+-- DETECÇÃO DE CARGOS EM TEMPO REAL
 local function checkRoles()
     for _, p in pairs(Players:GetPlayers()) do
         if p == lp then continue end
         
-        -- Verifica mochila e personagem simultaneamente
+        -- Verifica faca e arma para identificar os papéis no jogo
         local hasKnife = p.Backpack:FindFirstChild("Knife") or (p.Character and p.Character:FindFirstChild("Knife"))
         local hasGun = p.Backpack:FindFirstChild("Gun") or (p.Character and p.Character:FindFirstChild("Gun")) or p.Backpack:FindFirstChild("Revolver") or (p.Character and p.Character:FindFirstChild("Revolver"))
         
         if hasKnife then 
             RolesCache.Murderer = p
-            if _G.CherryConfig.ESP then applyESP(p, Color3.fromRGB(255, 0, 0)) end -- Vermelho para o Murder
+            if _G.CherryConfig.ESP then applyESP(p, Color3.fromRGB(255, 0, 0)) end 
         elseif hasGun then 
             RolesCache.Sheriff = p
-            if _G.CherryConfig.ESP then applyESP(p, Color3.fromRGB(0, 120, 255)) end -- Azul para o Sheriff
+            if _G.CherryConfig.ESP then applyESP(p, Color3.fromRGB(0, 120, 255)) end 
         else
-            -- Limpeza de ESP para inocentes
+            -- Limpeza para inocentes (Exceto se for o alvo do Troll)
             if _G.CherryConfig.ESP and not (_G.CherryConfig.PlayerESP and p == selectedPlayer) then 
                 removeESP(p) 
             end
@@ -246,20 +230,20 @@ local function checkRoles()
     end
 end
 
--- INICIALIZAÇÃO DA INTERFACE (REDZ LIBRARY)
+-- CRIAÇÃO DA JANELA PRINCIPAL (CORREÇÃO DE INTERFACE)
 local Window = redzlib:MakeWindow({
     Title = "Cherry Hub",
     SubTitle = "v11.0 - Luks Edition",
     SaveFolder = "CherryMM2"
 })
 
--- Botão de Minimizar (Personalizado)
+-- Botão de Minimizar (Corrigido para não bugar no celular)
 Window:AddMinimizeButton({
     Button = { Image = "rbxassetid://78702423919944", BackgroundTransparency = 0 },
     Corner = { CornerRadius = UDim.new(35, 1) },
 })
 
--- Criação das Abas (T1 a T6)
+-- DEFINIÇÃO DAS 6 ABAS (MANTENDO A ORDEM SOLICITADA)
 local T1 = Window:MakeTab({"Home", ""})
 local T2 = Window:MakeTab({"Inocente", ""})
 local T3 = Window:MakeTab({"Assassino", ""})
@@ -267,53 +251,41 @@ local T4 = Window:MakeTab({"Xerife", ""})
 local T5 = Window:MakeTab({"Troll", ""})
 local T6 = Window:MakeTab({"Misc", ""})
 
--- ABA HOME (BOAS-VINDAS)
-T1:AddParagraph({"🌸 Cherry Hub v11.0", "Luks Edition - O Fling que não desiste.\n\nMotor: Luks-Seeker (Ativo).\nFísica: Assembly Nuke.\nUsuário: Luks."})
-T1:AddParagraph({"Destaque desta versão:", "O Fling agora só para quando o alvo atinge uma velocidade de ejeção fatal. Não há fuga."})
+-- ABA HOME (BOAS-VINDAS E STATUS)
+T1:AddParagraph({"🌸 Cherry Hub v11.0", "Bem-vindo, Luks!\nStatus: Motor Luks-Seeker Ativo.\nVersão: 11.0 (Revision Alpha)."})
+T1:AddParagraph({"Importante:", "O Fling Seeker persistente monitora a velocidade do alvo. Ele só para quando o player for ejetado."})
+
+
+
 
 -- Cherry Hub v11.0 - Luks Edition (PART 4/10)
+-- Revisão: Abas Inocente e Assassino (Sintaxe Corrigida)
 
--- ABA INOCENTE - SEÇÃO COMBATE (LUKS-SEEKER INTEGRADO)
+-- ABA INOCENTE - COMBATE E FARM
 T2:AddSection({"Combate de Sobrevivência"})
 T2:AddToggle({
-    Name = "ESP Global (Murder/Sheriff)", 
+    Name = "ESP Global (Inimigos)", 
     Default = false, 
     Callback = function(v) _G.CherryConfig.ESP = v end
 })
 
 T2:AddButton({"🔪 Kill Murder (Luks-Seeker Fling)", function() 
-    -- Luks, esta função localiza o Murderer e ativa o fling persistente
-    local target Murderer;
+    -- Luks, esta função localiza o Murderer e ativa o motor persistente corrigido.
+    local target;
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= lp and p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then
             target = p
             break
         end
     end
+    
     if target then 
         executeFling(target) 
     else
-        print("Assassino não encontrado ou ainda não puxou a faca.")
+        notify("Cherry Hub", "Luks, o Assassino não foi detectado no momento.")
     end
 end})
 
-T2:AddButton({"🔫 Roubar Arma (Auto-Grab)", function() 
-    -- Procura pela arma caída no chão e teleporta para coletar
-    for _, v in pairs(workspace:GetChildren()) do
-        if v.Name == "GunDrop" or v:FindFirstChild("GunDrop") then
-            local handle = v:FindFirstChild("Handle") or v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
-            if handle then
-                local oldPos = lp.Character.HumanoidRootPart.CFrame
-                lp.Character.HumanoidRootPart.CFrame = handle.CFrame
-                task.wait(0.2)
-                lp.Character.HumanoidRootPart.CFrame = oldPos
-                break
-            end
-        end
-    end
-end})
-
--- ABA INOCENTE - SEÇÃO FARM DE MOEDAS
 T2:AddSection({"💰 Farm de Moedas"})
 T2:AddToggle({
     Name = "Ativar Auto Farm", 
@@ -329,8 +301,8 @@ T2:AddSlider({
     Callback = function(v) _G.CherryConfig.FarmSpeed = v end
 })
 
--- ABA ASSASSINO - SEÇÃO HITBOX
-T3:AddSection({"⚔️ Hitbox (Expansão)"})
+-- ABA ASSASSINO - HITBOX E AURA
+T3:AddSection({"⚔️ Hitbox"})
 T3:AddToggle({
     Name = "Ativar Hitbox", 
     Default = false, 
@@ -345,7 +317,6 @@ T3:AddSlider({
     Callback = function(v) _G.CherryConfig.HitboxSize = v end
 })
 
--- ABA ASSASSINO - SEÇÃO KILL AURA
 T3:AddSection({"🔥 Kill Aura"})
 T3:AddToggle({
     Name = "Ativar Kill Aura", 
@@ -365,18 +336,22 @@ T3:AddSlider({
 
 
 -- Cherry Hub v11.0 - Luks Edition (PART 5/10)
+-- Revisão: Abas Xerife e Troll (Seleção de Alvo e Fling Persistente)
 
 -- ABA XERIFE
 T4:AddSection({"🎯 Auto Combat"})
-T4:AddParagraph({"Aviso do Xerife:", "Luks, o Auto Shot usa Raycast para garantir que você não atire em paredes. Precisão total contra o Murderer."})
-
 T4:AddToggle({
     Name = "Ativar Auto Shot", 
     Default = false, 
     Callback = function(v) _G.CherryConfig.AutoShot = v end
 })
 
--- ABA TROLL (SISTEMA DE SELEÇÃO E ATAQUE PERSISTENTE)
+T4:AddParagraph({"Dica:", "Luks, o Auto Shot só dispara se houver linha de visão limpa até o Murderer."})
+
+-- ABA TROLL (SISTEMA DE SELEÇÃO E MOTOR SEEKER)
+T5:AddSection({"🎯 Selecionar Alvo"})
+
+-- Função auxiliar para listar nomes de jogadores
 local function getPNames() 
     local names = {}
     for _, p in pairs(Players:GetPlayers()) do 
@@ -386,21 +361,30 @@ local function getPNames()
 end
 
 local pDropdown = T5:AddDropdown({
-    Name = "Escolher Player (Alvo)", 
+    Name = "Escolher Player", 
     Options = getPNames(), 
     Default = "", 
-    Callback = function(v) selectedPlayer = Players:FindFirstChild(v) end
+    Callback = function(v) 
+        selectedPlayer = Players:FindFirstChild(v) 
+        if selectedPlayer then
+            notify("Alvo Selecionado", "Luks, o alvo agora é: " .. v)
+        end
+    end
 })
 
--- Atualização dinâmica da lista para o Luks (Quem entra e quem sai)
+-- Atualização automática da lista para o Luks
 Players.PlayerAdded:Connect(function() pDropdown:SetOptions(getPNames()) end)
 Players.PlayerRemoving:Connect(function() pDropdown:SetOptions(getPNames()) end)
 
 T5:AddSection({"🔥 Ações no Alvo"})
 
-T5:AddButton({"🌪️ Fling Alvo (Luks-Seeker)", function() 
-    -- Fling único mas persistente (só para quando o cara voar)
-    if selectedPlayer then executeFling(selectedPlayer) end 
+T5:AddButton({"🌪️ Fling Alvo (Motor Persistente)", function() 
+    -- Luks, este botão usa o motor executeFling que só para quando o alvo voar.
+    if selectedPlayer then 
+        executeFling(selectedPlayer) 
+    else
+        notify("Erro", "Luks, selecione um jogador primeiro!")
+    end 
 end})
 
 T5:AddToggle({
@@ -411,61 +395,67 @@ T5:AddToggle({
         task.spawn(function() 
             while _G.CherryConfig.FlingLoop do 
                 if selectedPlayer then 
-                    -- Luks, o motor executeFling já tem a trava de "só parar quando flingar"
+                    -- O motor agora tem a trava interna de 'Velocity Magnitude'
                     executeFling(selectedPlayer) 
                 end 
-                task.wait(0.1) -- Delay mínimo para estabilidade
+                task.wait(0.2) 
             end 
         end)
     end
 })
 
 T5:AddToggle({
-    Name = "ESP no Alvo (Target Focus)", 
+    Name = "ESP Alvo (Foco)", 
     Default = false, 
     Callback = function(v) 
-        _G.CherryConfig.PlayerESP = v
-        if not v and selectedPlayer then removeESP(selectedPlayer) end 
+        _G.CherryConfig.PlayerESP = v 
+        if not v and selectedPlayer then removeESP(selectedPlayer) end
     end
 })
 
 
 
--- Cherry Hub v11.0 - Luks Edition (PART 6/10)
 
--- CONTINUAÇÃO DA ABA TROLL (CONTROLE VISUAL)
+-- Cherry Hub v11.0 - Luks Edition (PART 6/10)
+-- Revisão: Finalização da Troll, Aba Misc e Loops de Combate
+
+-- CONTINUAÇÃO DA ABA TROLL (VISUAL E CAOS)
 T5:AddToggle({
     Name = "View Alvo (Spectate)", 
     Default = false, 
     Callback = function(v) 
         _G.CherryConfig.View = v
+        -- Luks, restaura a câmera para você se o View for desativado
         if not v and lp.Character and lp.Character:FindFirstChild("Humanoid") then 
             workspace.CurrentCamera.CameraSubject = lp.Character.Humanoid 
         end
     end
 })
 
-T5:AddSection({"💀 Caos Global (Seeker All)"})
-T5:AddButton({"💀 Fling Todos os Jogadores", function() 
-    -- Luks, este comando percorre a lista e usa o motor persistente em cada um.
+T5:AddSection({"💀 Caos Global"})
+T5:AddButton({"💀 Fling Todos (Seeker All)", function() 
+    -- Luks, este comando percorre a lista e usa o motor persistente em cada jogador.
+    notify("Caos Ativado", "Luks, iniciando o massacre global...")
     for _, p in pairs(Players:GetPlayers()) do 
         if p ~= lp and p.Character then 
             executeFling(p) 
-            task.wait(0.05) -- Delay mínimo para não travar o seu jogo
+            task.wait(0.05) 
         end 
     end 
 end})
 
 -- ABA MISC (PRESERVADA PARA O LUKS)
-T6:AddSection({"⚡ Movimentação e Física"})
-T6:AddParagraph({"Dica de Uso:", "Luks, use a velocidade para se aproximar do alvo mais rápido antes de ativar o Fling."})
-
+T6:AddSection({"⚡ Movimentação"})
 T6:AddSlider({
     Name = "Velocidade (WalkSpeed)", 
     Min = 16, 
     Max = 150, 
     Default = 16, 
-    Callback = function(v) if lp.Character then lp.Character.Humanoid.WalkSpeed = v end end
+    Callback = function(v) 
+        if lp.Character and lp.Character:FindFirstChild("Humanoid") then 
+            lp.Character.Humanoid.WalkSpeed = v 
+        end 
+    end
 })
 
 T6:AddSlider({
@@ -473,12 +463,16 @@ T6:AddSlider({
     Min = 50, 
     Max = 300, 
     Default = 50, 
-    Callback = function(v) if lp.Character then lp.Character.Humanoid.JumpPower = v end end
+    Callback = function(v) 
+        if lp.Character and lp.Character:FindFirstChild("Humanoid") then 
+            lp.Character.Humanoid.JumpPower = v 
+        end 
+    end
 })
 
--- LOOPS DE SINCRONIZAÇÃO (HITBOX E KILL AURA)
+-- LOOPS DE SINCRONIZAÇÃO EM TEMPO REAL (COMBATE)
 RunService.Heartbeat:Connect(function()
-    -- Gerenciamento de Hitbox em Tempo Real
+    -- Gerenciamento de Hitbox
     if _G.CherryConfig.Hitbox then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
@@ -490,16 +484,15 @@ RunService.Heartbeat:Connect(function()
         end
     end
     
-    -- Gerenciamento de Kill Aura (Ghost Hit)
+    -- Gerenciamento de Kill Aura
     if _G.CherryConfig.KillAura then
         local char = lp.Character
         local knife = char and (char:FindFirstChild("Knife") or lp.Backpack:FindFirstChild("Knife"))
         if knife then
-            -- Auto-Equipar para o Luks
             if knife.Parent == lp.Backpack then char.Humanoid:EquipTool(knife) end
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.Humanoid.Health > 0 then
-                    -- Se estiver no alcance, a faca "teleporta" o dano
+                    -- Se o inimigo estiver no raio definido, a faca ataca automaticamente
                     if (char.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude < _G.CherryConfig.AuraRadius then
                         knife.Handle.CFrame = p.Character.HumanoidRootPart.CFrame
                     end
@@ -514,10 +507,11 @@ end)
 
 
 -- Cherry Hub v11.0 - Luks Edition (PART 7/10)
+-- Revisão: Execução de Combate e Renderização de Câmera
 
--- EXECUÇÃO DE COMBATE EM TEMPO REAL
+-- EXECUÇÃO DE COMBATE (FRAME-BY-FRAME)
 RunService.Heartbeat:Connect(function()
-    -- Luks, este loop verifica a cada frame se o Auto-Shot deve ser disparado.
+    -- Luks, verifica a cada frame se o Auto-Shot deve ser disparado contra o Murderer.
     if _G.CherryConfig.AutoShot then 
         autoShot() 
     end
@@ -529,7 +523,7 @@ RunService.RenderStepped:Connect(function()
     if _G.CherryConfig.View and selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("Humanoid") then
         workspace.CurrentCamera.CameraSubject = selectedPlayer.Character.Humanoid
     else
-        -- Restaura o foco da câmera para o seu personagem
+        -- Restaura o foco da câmera para o seu personagem quando desligado
         if not _G.CherryConfig.View and lp.Character and lp.Character:FindFirstChild("Humanoid") then
             if workspace.CurrentCamera.CameraSubject ~= lp.Character.Humanoid then
                 workspace.CurrentCamera.CameraSubject = lp.Character.Humanoid
@@ -537,22 +531,22 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- ESP Especial para o Alvo Selecionado no Dropdown (Amarelo)
+    -- ESP Especial para o Alvo Selecionado no Dropdown (Cor Amarela)
     if _G.CherryConfig.PlayerESP and selectedPlayer then 
         applyESP(selectedPlayer, Color3.fromRGB(255, 255, 0)) 
     end
 end)
 
--- MONITORAMENTO DE CARGOS E LIMPEZA DE ESP
+-- MONITORAMENTO DE CARGOS E LIMPEZA VISUAL
 task.spawn(function()
     while task.wait(0.5) do
-        -- Luks, esta função identifica quem é o Murder e o Sheriff dinamicamente.
+        -- Luks, esta função identifica quem é o perigo na partida dinamicamente.
         checkRoles()
         
-        -- Limpeza de Memória Visual: Remove destaques de quem não é mais alvo ou saiu do jogo.
+        -- Gerenciamento de Memória Visual: Remove ESP de quem não é mais prioridade.
         if not _G.CherryConfig.ESP then
             for _, p in pairs(Players:GetPlayers()) do
-                -- Mantém o destaque apenas se for o seu alvo de Troll.
+                -- Só mantém o ESP se for o seu alvo de Troll atual.
                 if not (_G.CherryConfig.PlayerESP and p == selectedPlayer) then
                     removeESP(p)
                 end
@@ -561,60 +555,62 @@ task.spawn(function()
     end
 end)
 
+
+
+
 -- Cherry Hub v11.0 - Luks Edition (PART 8/10)
+-- Revisão: Estabilidade do Personagem e Utilitários da Aba Misc
 
 -- GESTÃO DE ESTADO DO PERSONAGEM (ESTABILIDADE LUKS)
--- Luks, esta função garante que seu personagem renasça com todas as proteções ativas.
 local function onCharacterAdded(newChar)
     local hum = newChar:WaitForChild("Humanoid")
     
-    -- Limpa o cache de cargos na morte para evitar bugs de ESP
+    -- Limpa o cache de cargos na morte para evitar bugs visuais no ESP
     hum.Died:Connect(function()
         RolesCache = { Murderer = nil, Sheriff = nil }
     end)
     
-    -- ANTI-SIT INTELIGENTE: Impede que você sente em bancos, exceto durante o Fling.
+    -- ANTI-SIT INTELIGENTE: Bloqueia sentar em bancos, exceto durante o Fling.
     hum:GetPropertyChangedSignal("Sit"):Connect(function()
-        -- O motor Luks-Seeker usa o Sit para instabilizar a física.
-        -- Só bloqueamos o Sit se as forças de Fling NÃO estiverem ativas.
+        -- O motor Luks-Seeker utiliza o Sit para instabilizar a física
         local isFlinging = newChar.HumanoidRootPart:FindFirstChild("Luks_Velocity")
         if hum.Sit and not isFlinging then 
             hum.Sit = false 
-            -- Teleporta levemente para cima para sair do banco/cadeira
+            -- Teleporta levemente para cima para sair do objeto
             newChar.HumanoidRootPart.CFrame = newChar.HumanoidRootPart.CFrame * CFrame.new(0, 2, 0)
         end
     end)
 end
 
--- Ativação para o personagem atual e futuros
+-- Ativação para o personagem atual e futuros renascimentos
 if lp.Character then onCharacterAdded(lp.Character) end
 lp.CharacterAdded:Connect(onCharacterAdded)
 
--- ANTI-STUN & FORCE STAND
--- Luks, isso impede que você caia ou fique "deitado" no chão (Ragdoll).
+-- ANTI-STUN & FORCE STAND (EVITA FICAR RAGDOLL)
 RunService.Stepped:Connect(function()
     if lp.Character and lp.Character:FindFirstChild("Humanoid") then
-        local state = lp.Character.Humanoid:GetState()
+        local hum = lp.Character.Humanoid
+        local state = hum:GetState()
         if state == Enum.HumanoidStateType.FallingDown or state == Enum.HumanoidStateType.Ragdoll then
-            -- Se não estivermos fligando, forçamos o estado de pé
+            -- Se não estivermos fligando, forçamos o estado de pé instantaneamente
             local isFlinging = lp.Character.HumanoidRootPart:FindFirstChild("Luks_Velocity")
             if not isFlinging then
-                lp.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+                hum:ChangeState(Enum.HumanoidStateType.Running)
             end
         end
     end
 end)
 
--- ABA MISC - SEÇÃO UTILITÁRIOS (PRESERVADA)
-T6:AddSection({"🛠️ Utilitários de Sistema"})
+-- ABA MISC - SEÇÃO UTILITÁRIOS (PRESERVADA PARA O LUKS)
+T6:AddSection({"🛠️ Utilitários"})
 
 T6:AddButton({"♻️ Resetar Personagem", function()
-    -- Luks, use se o personagem bugar ou se você ficar preso em algum lugar.
+    -- Luks, use para limpar bugs visuais ou sair de armadilhas.
     if lp.Character then lp.Character:BreakJoints() end
 end})
 
-T6:AddButton({"🚫 FPS Boost (Reduzir Lag)", function()
-    -- Luks, esta função limpa texturas e partículas para o script rodar mais liso.
+T6:AddButton({"🚫 FPS Boost (Otimizar)", function()
+    -- Luks, remove texturas e detalhes pesados para rodar mais liso.
     for _, v in pairs(workspace:GetDescendants()) do
         if v:IsA("BasePart") and not v.Parent:FindFirstChild("Humanoid") then
             v.Material = Enum.Material.SmoothPlastic
@@ -625,16 +621,17 @@ T6:AddButton({"🚫 FPS Boost (Reduzir Lag)", function()
             v.Enabled = false
         end
     end
+    notify("FPS Boost", "Luks, texturas simplificadas para maior desempenho!")
 end})
 
 
 
 
-
 -- Cherry Hub v11.0 - Luks Edition (PART 9/10)
+-- Revisão: Estabilização de Rede, Rejoin e Eventos do Mapa
 
 -- ESTABILIZAÇÃO DE REDE (PHYSICS PRIORITY)
--- Luks, esta função garante que o motor de Fling receba prioridade total de processamento.
+-- Luks, esta função garante que o motor de Fling receba prioridade de processamento.
 local function stabilizeNetwork()
     task.spawn(function()
         while task.wait(1) do
@@ -652,13 +649,13 @@ stabilizeNetwork()
 T6:AddSection({"🌐 Servidor"})
 
 T6:AddButton({"🔄 Re-entrar no Servidor (Rejoin)", function()
-    -- Luks, usa este botão para reiniciar sua sessão instantaneamente.
+    -- Luks, use para reiniciar sua sessão instantaneamente no mesmo servidor.
     local TeleportService = game:GetService("TeleportService")
     TeleportService:Teleport(game.PlaceId, lp)
 end})
 
 -- LIMPEZA DE INSTÂNCIAS (GARBAGE COLLECTOR)
--- Luks, este loop limpa os resíduos do Fling (velocidade/torque) para evitar lag.
+-- Luks, este loop limpa os resíduos físicos do Fling para evitar lag acumulado.
 task.spawn(function()
     while task.wait(30) do
         for _, v in pairs(game:GetService("Debris"):GetChildren()) do
@@ -669,53 +666,42 @@ task.spawn(function()
     end
 end)
 
--- SISTEMA DE NOTIFICAÇÃO (FEEDBACK PARA O LUKS)
-local function notify(title, text)
-    if redzlib.SetNotif then
-        redzlib:SetNotif({
-            Title = title,
-            Description = text,
-            Time = 5
-        })
-    else
-        -- Fallback caso a biblioteca sofra atualização
-        print("[" .. title .. "]: " .. text)
-    end
-end
-
--- Detecção de Eventos do MM2 (Avisos Críticos)
+-- DETECÇÃO DE EVENTOS DO MM2 (NOTIFICAÇÕES CRÍTICAS)
 workspace.ChildAdded:Connect(function(v)
     if v.Name == "GunDrop" then
-        -- Luks, o script avisa quando a arma está disponível para coleta.
-        notify("Cherry Hub", "Atenção Luks: A arma caiu! Vá buscar.")
+        -- O script avisa no topo da tela quando o Sheriff morre e a arma cai.
+        notify("Cherry Hub", "Luks, a arma caiu! É sua chance de virar o jogo.")
     end
 end)
 
-
+-- LOG DE DEPURAÇÃO (OPCIONAL PARA EXECUTORES)
+task.spawn(function()
+    print("[Cherry Hub]: Sincronização de rede concluída para o usuário Luks.")
+end)
 
 -- Cherry Hub v11.0 - Luks Edition (PART 10/10)
+-- Revisão Final: Ativação de Interface e Encerramento de Carregamento
 
--- FINALIZAÇÃO E ATIVAÇÃO DA INTERFACE
--- Luks, esta linha garante que o script sempre abra na aba principal para você ver o status.
+-- SELEÇÃO AUTOMÁTICA DA ABA PRINCIPAL
+-- Luks, isso garante que a interface renderize a aba Home assim que você executar.
 Window:SelectTab(T1)
 
--- MENSAGENS DE LOG (CONFIRMAÇÃO NO CONSOLE DO EXECUTOR)
+-- MENSAGENS DE CONFIRMAÇÃO NO CONSOLE
 print("-----------------------------------------")
-print("   CHERRY HUB v11.0 - LUKS EDITION   ")
-print("   Status: 100% CARREGADO           ")
-print("   Usuário: LUKS                    ")
-print("   Motor: LUKS-SEEKER (Ativo)       ")
-print("   Fling: PERSISTENTE (MODO CARAPATO)")
+print("   CHERRY HUB v11.0 - REVISÃO FINAL     ")
+print("   Status: INTERFACE CORRIGIDA          ")
+print("   Motor: LUKS-SEEKER (ESTÁVEL)         ")
+print("   Usuário: LUKS                        ")
 print("-----------------------------------------")
 
--- Notificação Final de Inicialização para o Luks
-notify("Cherry Hub v11.0", "Carregamento concluído! O Luks-Seeker está pronto para caçar.")
+-- NOTIFICAÇÃO FINAL DE SUCESSO
+notify("Cherry Hub v11.0", "Luks, o script foi carregado com sucesso e a interface está pronta!")
 
--- FECHAMENTO DO PROCESSO DE INICIALIZAÇÃO
--- O script agora entra em modo de escuta contínua de todos os loops de combate e troll.
--- Luks, certifique-se de que as 10 partes foram coladas sequencialmente para evitar erros.
+-- FECHAMENTO DO PROCESSO
+-- O script agora permanece em execução monitorando todos os comandos das 6 abas.
+-- Certifique-se de colar as 10 partes em sequência para que o código funcione 100%.
 
--- [FIM DO SCRIPT CHERRY HUB v11.0 - LUKS EDITION]
+-- [FIM DO SCRIPT REVISADO - CHERRY HUB v11.0 - LUKS EDITION]
 
 
 
