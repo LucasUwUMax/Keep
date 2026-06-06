@@ -1,4 +1,4 @@
--- Cherry Hub v11.0 - Luks Edition (PART 1/10)
+-- Cherry Hub v11.0 - Luks Edition (PART 1/100000)
 -- Motor de Física: Luks-Seeker (Base v3.2 Improved)
 -- Status: Fling Persistente + Velocidade GOD
 
